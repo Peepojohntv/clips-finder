@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Twitch Clip Finder</title>
+  <style>
+    :root{
+      --bg0:#0b0b10;
+      --bg1:#12121a;
+      --card: rgba(255,255,255,.06);
+      --stroke: rgba(255,255,255,.10);
+      --text:#f3f3f5;
+      --muted: rgba(243,243,245,.72);
+      --muted2: rgba(243,243,245,.55);
+      --accent:#9146ff;
+      --accent2:#a970ff;
+      --good:#4ade80;
+      --bad:#fb7185;
+
+      --r:16px;
+      --shadow: 0 20px 60px rgba(0,0,0,.45);
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background:
+        radial-gradient(1200px 700px at 15% 10%, rgba(145,70,255,.18), transparent 60%),
+        radial-gradient(900px 600px at 85% 20%, rgba(169,112,255,.14), transparent 55%),
+        radial-gradient(800px 600px at 40% 95%, rgba(145,70,255,.10), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      padding: 26px;
+    }
+
+    .header{
+      display:flex; align-items:flex-end; justify-content:space-between; gap:16px;
+      margin-bottom: 18px;
+    }
+    .title h1{
+      margin:0;
+      font-size: 22px;
+      letter-spacing:.2px;
+    }
+    .title p{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.35;
+      max-width: 950px;
+    }
+    .badge{
+      display:inline-flex;
+      padding:8px 10px;
+      border:1px solid var(--stroke);
+      border-radius: 999px;
+      background: rgba(0,0,0,.15);
+      color: var(--muted);
+      font-size:12px;
+      gap:8px;
+      align-items:center;
+      white-space:nowrap;
+    }
+    .dot{
+      width:8px;height:8px;border-radius:99px;
+      background: var(--accent);
+      box-shadow: 0 0 0 6px rgba(145,70,255,.15);
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns: 420px 1fr;
+      gap: 16px;
+      align-items:start;
+    }
+
+    .card{
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: var(--r);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      overflow:hidden;
+    }
+    .card .card-h{
+      padding: 14px 14px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    }
+    .card .card-h h2{
+      margin:0; font-size:14px; letter-spacing:.2px;
+      color: rgba(243,243,245,.92);
+    }
+    .card .card-b{
+      padding: 14px;
+    }
+
+    label{
+      display:block;
+      margin: 10px 0 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    input{
+      width:100%;
+      padding: 11px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(10,10,14,.55);
+      color: var(--text);
+      outline:none;
+      transition: border .15s ease, transform .15s ease;
+    }
+    input:focus{
+      border-color: rgba(145,70,255,.55);
+      box-shadow: 0 0 0 4px rgba(145,70,255,.14);
+    }
+
+    .row{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .btnrow{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:12px; }
+
+    button{
+      border:0;
+      border-radius: 12px;
+      padding: 11px 12px;
+      cursor:pointer;
+      font-weight: 650;
+      color: white;
+      background: linear-gradient(180deg, var(--accent), #6d28d9);
+      box-shadow: 0 14px 30px rgba(145,70,255,.20);
+      transition: transform .12s ease, filter .12s ease, opacity .12s ease;
+    }
+    button:hover{ transform: translateY(-1px); filter: brightness(1.02); }
+    button:active{ transform: translateY(0px); }
+    button:disabled{ opacity:.55; cursor:not-allowed; transform:none; }
+
+    .btn-ghost{
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: none;
+      color: rgba(243,243,245,.9);
+    }
+
+    .hint{
+      margin-top: 10px;
+      color: var(--muted2);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .hint code{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 11px;
+      color: rgba(243,243,245,.88);
+      background: rgba(0,0,0,.22);
+      padding: 2px 6px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,.08);
+    }
+
+    .status{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .right-top{
+      display:flex; align-items:center; gap:10px;
+    }
+    .mini{
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      background: rgba(0,0,0,.18);
+      border: 1px solid rgba(255,255,255,.10);
+      color: var(--muted);
+      white-space:nowrap;
+    }
+    .err{
+      margin-top: 10px;
+      color: var(--bad);
+      white-space: pre-wrap;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .results{
+      padding: 14px;
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 12px;
+    }
+
+    .clip{
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      overflow:hidden;
+      transition: transform .12s ease, border .12s ease, background .12s ease;
+    }
+    .clip:hover{
+      transform: translateY(-2px);
+      border-color: rgba(145,70,255,.30);
+      background: rgba(0,0,0,.22);
+    }
+    .clip .thumb{
+      width:100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      display:block;
+      background: rgba(255,255,255,.06);
+    }
+    .clip .body{
+      padding: 12px 12px 12px;
+    }
+    .clip .title{
+      margin:0 0 8px;
+      font-size: 13px;
+      line-height: 1.25;
+      letter-spacing:.1px;
+    }
+    .clip a{
+      color: rgba(243,243,245,.95);
+      text-decoration:none;
+    }
+    .clip a:hover{ text-decoration: underline; }
+    .meta{
+      color: var(--muted2);
+      font-size: 12px;
+      line-height: 1.45;
+      display:flex; flex-wrap:wrap; gap:10px;
+    }
+    .tag{
+      display:inline-flex;
+      gap:6px;
+      align-items:center;
+      border: 1px solid rgba(255,255,255,.10);
+      padding: 6px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.06);
+      color: rgba(243,243,245,.78);
+    }
+
+    .spinner{
+      width:14px; height:14px;
+      border-radius: 999px;
+      border: 2px solid rgba(243,243,245,.25);
+      border-top-color: var(--accent2);
+      animation: spin .9s linear infinite;
+    }
+    @keyframes spin{ to{ transform: rotate(360deg);} }
+
+    @media (max-width: 980px){
+      body{ padding: 16px; }
+      .layout{ grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="title">
+      <h1>Twitch Clip Finder</h1>
+      <p>Gib einen Twitch‑Kanal und einen Zeitraum ein. Die Seite zieht alle Clips aus dem Zeitraum über die Twitch Helix API. Optional kannst du den Token direkt über Twitch holen (Redirect Flow) – oder du nutzt die sichere Backend‑Variante.</p>
+    </div>
+    <div class="badge"><span class="dot"></span> Helix API • Zeitraum‑Suche</div>
+  </div>
+
+  <div class="layout">
+    <div class="card">
+      <div class="card-h">
+        <h2>Einstellungen</h2>
+        <div class="right-top">
+          <button id="btnAbort" class="btn-ghost" disabled>Stop</button>
+        </div>
+      </div>
+      <div class="card-b">
+
+        <label for="clientId">Twitch Client‑ID</label>
+        <input id="clientId" placeholder="z.B. abcd1234..." autocomplete="off" />
+
+        <label for="token">OAuth Access Token</label>
+        <input id="token" placeholder="ohne 'Bearer ' – nur der Token" autocomplete="off" />
+
+        <div class="btnrow">
+          <button id="btnGetToken" class="btn-ghost" type="button">Token holen (Redirect)</button>
+          <button id="btnClear" class="btn-ghost" type="button">Felder leeren</button>
+        </div>
+
+        <label for="login">Streamer (Loginname)</label>
+        <input id="login" placeholder="z.B. papaplatte" autocomplete="off" />
+
+        <div class="row">
+          <div>
+            <label for="from">Von (Datum+Uhrzeit)</label>
+            <input id="from" type="datetime-local" />
+          </div>
+          <div>
+            <label for="to">Bis (Datum+Uhrzeit)</label>
+            <input id="to" type="datetime-local" />
+          </div>
+        </div>
+
+        <button id="btnSearch" style="margin-top:12px;">Clips suchen</button>
+
+        <div class="hint">
+          Tipp: Große Zeiträume werden automatisch in 24h‑Blöcke aufgeteilt (API‑freundlich).<br>
+          Redirect URL für “Token holen” muss in deiner Twitch App exakt passen (z.B. <code>http://localhost:5500/index.html</code>).
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">
+        <h2>Ergebnisse</h2>
+        <div class="status" id="status">
+          <span>Bereit.</span>
+          <span id="busy" class="mini" style="display:none;"><span class="spinner" style="display:inline-block;vertical-align:-2px;margin-right:8px;"></span>lädt…</span>
+        </div>
+      </div>
+
+      <div class="card-b" style="padding-bottom:0;">
+        <div id="error" class="err"></div>
+      </div>
+
+      <div class="results" id="results"></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+
+  const btnSearch = $("btnSearch");
+  const btnAbort  = $("btnAbort");
+  const btnGetToken = $("btnGetToken");
+  const btnClear = $("btnClear");
+
+  const statusEl  = $("status");
+  const busyEl    = $("busy");
+  const errorEl   = $("error");
+  const resultsEl = $("results");
+
+  let abortController = null;
+
+  const LS = {
+    clientId: "tcf_clientId",
+    token: "tcf_token",
+    login: "tcf_login"
+  };
+
+  function setBusy(isBusy){
+    busyEl.style.display = isBusy ? "inline-block" : "none";
+    btnSearch.disabled = isBusy;
+    btnAbort.disabled = !isBusy;
+  }
+
+  function setStatus(msg){
+    statusEl.firstElementChild.textContent = msg;
+  }
+  function setError(msg){ errorEl.textContent = msg || ""; }
+  function clearResults(){ resultsEl.innerHTML = ""; }
+
+  function toISO(dtLocal){
+    const d = new Date(dtLocal);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString();
+  }
+
+  function formatLocal(iso){
+    const d = new Date(iso);
+    return d.toLocaleString();
+  }
+
+  function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+  async function twitchFetch(url, { clientId, token, signal }){
+    const res = await fetch(url, {
+      headers: {
+        "Client-ID": clientId,
+        "Authorization": `Bearer ${token}`
+      },
+      signal
+    });
+    const text = await res.text();
+    let json = null;
+    try{ json = text ? JSON.parse(text) : null; }catch{}
+
+    if (!res.ok){
+      const msg = json?.message || json?.error || text || `HTTP ${res.status}`;
+      throw new Error(`Twitch API Fehler: ${msg}`);
+    }
+    return json;
+  }
+
+  async function getUserIdByLogin(login, auth){
+    const url = `https://api.twitch.tv/helix/users?login=${encodeURIComponent(login)}`;
+    const json = await twitchFetch(url, auth);
+    const user = json?.data?.[0];
+    if (!user?.id) throw new Error(`Kanal nicht gefunden: "${login}"`);
+    return { id: user.id, display_name: user.display_name };
+  }
+
+  function* chunkRangeByHours(startMs, endMs, hours=24){
+    const step = hours * 60 * 60 * 1000;
+    for (let cur = startMs; cur < endMs; cur += step){
+      yield [cur, Math.min(cur + step, endMs)];
+    }
+  }
+
+  async function getClipsForChunk(broadcasterId, startedAtISO, endedAtISO, auth){
+    const clips = [];
+    let after = null;
+
+    while (true){
+      const params = new URLSearchParams({
+        broadcaster_id: broadcasterId,
+        started_at: startedAtISO,
+        ended_at: endedAtISO,
+        first: "100"
+      });
+      if (after) params.set("after", after);
+
+      const url = `https://api.twitch.tv/helix/clips?${params.toString()}`;
+      const json = await twitchFetch(url, auth);
+
+      const data = json?.data || [];
+      clips.push(...data);
+
+      after = json?.pagination?.cursor;
+      if (!after || data.length === 0) break;
+
+      await sleep(120);
+    }
+    return clips;
+  }
+
+  function renderClips(clips){
+    clearResults();
+    if (!clips.length){
+      resultsEl.innerHTML = `<div class="hint" style="padding:2px 2px 14px;">Keine Clips im Zeitraum gefunden.</div>`;
+      return;
+    }
+
+    clips.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+
+    resultsEl.innerHTML = clips.map(c => {
+      const thumb = (c.thumbnail_url || "")
+        .replace("%{width}", "640")
+        .replace("%{height}", "360");
+
+      const title = (c.title || "(ohne Titel)")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+
+      return `
+        <div class="clip">
+          <img class="thumb" src="${thumb}" alt="">
+          <div class="body">
+            <p class="title"><a href="${c.url}" target="_blank" rel="noopener">${title}</a></p>
+            <div class="meta">
+              <span class="tag">🕒 ${formatLocal(c.created_at)}</span>
+              <span class="tag">👁️ ${c.view_count ?? "?"}</span>
+              <span class="tag">✂️ ${c.creator_name ?? "?"}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  async function onSearch(){
+    setError("");
+    clearResults();
+
+    const clientId = $("clientId").value.trim();
+    const token    = $("token").value.trim();
+    const login    = $("login").value.trim();
+
+    const fromVal = $("from").value;
+    const toVal   = $("to").value;
+
+    if (!clientId || !token || !login){
+      setError("Bitte Client-ID, Token und Streamer-Login ausfüllen.");
+      return;
+    }
+
+    const fromISO = toISO(fromVal);
+    const toISOv  = toISO(toVal);
+    if (!fromISO || !toISOv){
+      setError("Bitte 'Von' und 'Bis' (Datum+Uhrzeit) korrekt auswählen.");
+      return;
+    }
+
+    const fromMs = new Date(fromISO).getTime();
+    const toMs   = new Date(toISOv).getTime();
+    if (!(toMs > fromMs)){
+      setError("'Bis' muss nach 'Von' liegen.");
+      return;
+    }
+
+    // Save to localStorage
+    localStorage.setItem(LS.clientId, clientId);
+    localStorage.setItem(LS.token, token);
+    localStorage.setItem(LS.login, login);
+
+    abortController = new AbortController();
+    const auth = { clientId, token, signal: abortController.signal };
+
+    setBusy(true);
+
+    try{
+      setStatus("Hole Kanal-ID…");
+      const user = await getUserIdByLogin(login, auth);
+
+      const all = [];
+      const seen = new Set();
+
+      const chunks = Array.from(chunkRangeByHours(fromMs, toMs, 24));
+      setStatus(`Suche Clips für ${user.display_name} (${chunks.length} Block/Blöcke)…`);
+
+      for (let i=0; i<chunks.length; i++){
+        const [a,b] = chunks[i];
+        setStatus(`Block ${i+1}/${chunks.length}: ${new Date(a).toLocaleString()} – ${new Date(b).toLocaleString()}`);
+
+        const clips = await getClipsForChunk(user.id, new Date(a).toISOString(), new Date(b).toISOString(), auth);
+        for (const c of clips){
+          if (!seen.has(c.id)){
+            seen.add(c.id);
+            all.push(c);
+          }
+        }
+      }
+
+      setStatus(`Fertig. Gefunden: ${all.length} Clips.`);
+      renderClips(all);
+
+    } catch (err){
+      if (err?.name === "AbortError"){
+        setStatus("Abgebrochen.");
+      } else {
+        setStatus("Fehler.");
+        setError(String(err?.message || err));
+      }
+    } finally {
+      setBusy(false);
+      abortController = null;
+    }
+  }
+
+  function parseTokenFromHash(){
+    // Implicit flow: #access_token=...&scope=...&state=...
+    if (!location.hash || !location.hash.includes("access_token=")) return;
+
+    const hash = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
+    const params = new URLSearchParams(hash);
+    const accessToken = params.get("access_token");
+    if (accessToken){
+      $("token").value = accessToken;
+      localStorage.setItem(LS.token, accessToken);
+      setStatus("Token übernommen (aus Redirect).");
+    }
+    // Hash entfernen
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+
+  function getRedirectUri(){
+    // exakt die aktuelle Seite (ohne Hash)
+    return location.origin + location.pathname;
+  }
+
+  btnGetToken.addEventListener("click", () => {
+    setError("");
+    const clientId = $("clientId").value.trim();
+    if (!clientId){
+      setError("Bitte zuerst die Client-ID eintragen (sonst kann ich keine Twitch OAuth URL bauen).");
+      return;
+    }
+
+    // Achtung: Redirect-URI muss in der Twitch App hinterlegt sein (exakt match).
+    const redirectUri = getRedirectUri();
+
+    const state = Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
+    const scope = ""; // Für Clips lesen normalerweise kein Scope nötig.
+
+    const url =
+      "https://id.twitch.tv/oauth2/authorize" +
+      `?client_id=${encodeURIComponent(clientId)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&response_type=token` +
+      `&scope=${encodeURIComponent(scope)}` +
+      `&state=${encodeURIComponent(state)}`;
+
+    // Speichern (optional, damit du nach Rückkehr nichts verlierst)
+    localStorage.setItem(LS.clientId, clientId);
+
+    window.location.href = url;
+  });
+
+  btnClear.addEventListener("click", () => {
+    ["clientId","token","login"].forEach(id => $(id).value = "");
+    localStorage.removeItem(LS.clientId);
+    localStorage.removeItem(LS.token);
+    localStorage.removeItem(LS.login);
+    setError("");
+    clearResults();
+    setStatus("Felder geleert.");
+  });
+
+  btnSearch.addEventListener("click", onSearch);
+  btnAbort.addEventListener("click", () => abortController?.abort());
+
+  // Defaults + restore
+  const now = new Date();
+  const oneHourAgo = new Date(now.getTime() - 60*60*1000);
+  $("to").value = now.toISOString().slice(0,16);
+  $("from").value = oneHourAgo.toISOString().slice(0,16);
+
+  const savedClientId = localStorage.getItem(LS.clientId);
+  const savedToken = localStorage.getItem(LS.token);
+  const savedLogin = localStorage.getItem(LS.login);
+  if (savedClientId) $("clientId").value = savedClientId;
+  if (savedToken) $("token").value = savedToken;
+  if (savedLogin) $("login").value = savedLogin;
+
+  parseTokenFromHash();
+})();
+</script>
+</body>
+</html>
