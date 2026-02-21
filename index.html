@@ -250,6 +250,13 @@
 
             <div id="errorMsg" style="color: var(--danger); margin-top: 10px; display: none;"></div>
             <div id="clipsArea" class="clips-grid"></div>
+            <hr style="margin:30px 0; opacity:.2;">
+
+<h3>🎥 Clip direkt laden</h3>
+<input type="text" id="directClipUrl" placeholder="https://clips.twitch.tv/...">
+<button class="btn" style="width:100%; margin-top:10px;" onclick="handleDirectClip()">
+    Clip öffnen
+</button>
         </div>
     </div>
 </div>
@@ -600,7 +607,25 @@ function copyLink() {
     if (!currentClip) return;
     navigator.clipboard.writeText(`${currentClip.url}?t=${Math.floor(start)}s-${Math.floor(end)}s`).then(() => toast('Link kopiert!'));
 }
+function handleDirectClip(){
+    const url = document.getElementById("directClipUrl").value.trim();
+    if(!url) return toast("Bitte Clip-Link einfügen");
 
+    let clipId = url.split("/").pop().split("?")[0];
+
+    if(!clipId){
+        toast("Ungültiger Link");
+        return;
+    }
+
+    openEditor(
+        clipId,
+        url,
+        "",
+        "Direkt geladener Clip",
+        60
+    );
+}
 function toast(m) {
     const t = document.createElement('div'); 
     t.className = 'toast'; 
@@ -612,3 +637,4 @@ function toast(m) {
 
 </body>
 </html>
+
